@@ -1,0 +1,34 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>集装箱船舶跟踪信息系统</title>
+  <!-- 引入 Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- Dify 聊天机器人配置 -->
+  <script>
+    window.difyChatbotConfig = {
+      token: 'qylJxmAStyBnzDZc',
+      baseUrl: 'http://106.15.176.173',
+      inputs: {},
+      systemVariables: {},
+      userVariables: {}
+    };
+  </script>
+  <script
+    src="http://106.15.176.173/embed.min.js"
+    id="qylJxmAStyBnzDZc"
+    defer
+  ></script>
+  <style>
+    #dify-chatbot-bubble-button { background-color: #1C64F2 !important; }
+    #dify-chatbot-bubble-window { width: 24rem !important; height: 40rem !important; }
+  </style>
+</body>
+</html>
