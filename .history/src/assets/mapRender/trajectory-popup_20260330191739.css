@@ -1,0 +1,310 @@
+/* styles/trajectory-popup.css */
+
+.ts-popup {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #333;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    min-width: 280px;
+    max-width: 320px;
+    animation: popup-slide-up 0.2s ease-out;
+  }
+  
+  @keyframes popup-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* 📌 头部 */
+  .popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 500;
+  }
+  
+  .popup-header .header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .popup-icon {
+    font-size: 16px;
+  }
+  
+  .popup-title {
+    font-size: 14px;
+  }
+  
+  .popup-time {
+    font-size: 11px;
+    opacity: 0.9;
+    background: rgba(255,255,255,0.2);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  
+  /* 📋 主体 */
+  .popup-body {
+    padding: 12px 14px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  
+  .popup-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px dashed #eee;
+  }
+  
+  .popup-row:last-child {
+    border-bottom: none;
+  }
+  
+  .popup-label {
+    color: #666;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .popup-value {
+    color: #333;
+    font-weight: 600;
+    text-align: right;
+    word-break: break-all;
+  }
+  
+  /* 📍 坐标组 */
+  .coord-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  
+  .coord-value {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+  
+  .coord-value:hover {
+    background: #f0f4ff;
+    color: #667eea;
+  }
+  
+  .btn-copy {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  
+  .btn-copy:hover {
+    background: #667eea;
+    color: white;
+  }
+  
+  /* 🧭 航向箭头 */
+  .course-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  
+  .course-arrow {
+    display: inline-block;
+    transition: transform 0.3s ease;
+    font-size: 14px;
+  }
+  
+  /* 📊 状态徽章 */
+  .status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #f0f4ff;
+    color: #667eea;
+  }
+  
+  .status-0 { background: #dcfce7; color: #16a34a; }  /* 在航-绿 */
+  .status-1 { background: #fef3c7; color: #d97706; }  /* 锚泊-黄 */
+  .status-5 { background: #dbeafe; color: #2563eb; }  /* 靠泊-蓝 */
+  .status-6 { background: #fee2e2; color: #dc2626; }  /* 搁浅-红 */
+  
+  /* 🎯 目的地 + ETA */
+  .eta-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    font-size: 10px;
+    color: #6b7280;
+  }
+  
+  /* ⚡ 底部操作栏 */
+  .popup-footer {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #f9fafb;
+    border-top: 1px solid #eee;
+  }
+  
+  .popup-btn {
+    flex: 1;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  
+  .popup-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    opacity: 0.95;
+  }
+  
+  .btn-secondary {
+    background: white;
+    color: #4b5563;
+    border: 1px solid #d1d5db;
+  }
+  
+  .btn-secondary:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+  
+  /* 🌓 暗黑模式支持 */
+  @media (prefers-color-scheme: dark) {
+    .ts-popup {
+      background: #1f2937;
+      color: #e5e7eb;
+    }
+    
+    .popup-body {
+      background: #1f2937;
+    }
+    
+    .popup-row {
+      border-bottom-color: #374151;
+    }
+    
+    .popup-label {
+      color: #9ca3af;
+    }
+    
+    .popup-value {
+      color: #f3f4f6;
+    }
+    
+    .popup-footer {
+      background: #111827;
+      border-top-color: #374151;
+    }
+    
+    .btn-secondary {
+      background: #374151;
+      color: #e5e7eb;
+      border-color: #4b5563;
+    }
+    
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+  }
+  
+  /* 📱 移动端适配 */
+  @media (max-width: 480px) {
+    .ts-popup {
+      min-width: 240px;
+      max-width: 90vw;
+      font-size: 12px;
+    }
+    
+    .popup-header {
+      padding: 8px 12px;
+    }
+    
+    .popup-body {
+      padding: 10px 12px;
+      max-height: 40vh;
+    }
+    
+    .popup-footer {
+      padding: 8px 12px;
+      flex-wrap: wrap;
+    }
+    
+    .popup-btn {
+      padding: 5px 10px;
+      font-size: 11px;
+    }
+  }
+  
+  /* 🌀 加载状态 */
+  .popup-loading {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+  }
+  
+  .popup-loading::after {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
