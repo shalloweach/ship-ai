@@ -95,16 +95,16 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { searchPorts, searchPortsByCoord } from './chinaPortsData'
+import { searchPorts } from './chinaPortsData'
 
 const props = defineProps({
   markData: Object,
-  firstPoint:Object,
   draughts: { type: Array, default: () => [] },
   onConfirm: Function,
   onCancel: Function
 })
-
+const first = props.markData[0]
+console.log( '起始点：',first.lon,  first.lat )
 
 // 表单数据
 const form = ref({
@@ -173,29 +173,6 @@ const applyAutoStatus = () => {
   // 更新状态，但不标记为手动（因为自动）
   form.value.status = autoStatus
 }
-
-// 根据坐标自动搜索并填充港口（避免覆盖用户已选值）
-const autoFillPortByCoord = async () => {
-  // 如果用户已手动选择港口，则不自动填充
-  if (form.value.port?.trim()) return
-  
-  // 兼容 markData 为对象或数组的情况
-  
-  try {
-    const results = await searchPortsByCoord(props.firstPoint.lon, props.firstPoint.lat)
-    if (results?.length > 0 && !form.value.port?.trim()) {
-      // 取最近的第一个港口作为默认值
-      const defaultPort = results[0]
-      form.value.port = defaultPort.name
-      portKeyword.value = defaultPort.name
-      console.log('✅ 自动填充港口:', defaultPort.name)
-    }
-  } catch (error) {
-    console.warn('⚠️ 坐标搜索港口失败:', error)
-    // 失败时静默处理，不影响用户体验
-  }
-}
-
 
 // 绘制吃水折线图
 const drawChart = () => {
@@ -352,12 +329,6 @@ onMounted(() => {
     applyAutoStatus()
   }
   
-   // 🆕 新增：如果港口为空，尝试根据坐标自动填充
-   if (!form.value.port?.trim()) {
-    autoFillPortByCoord()
-  }
-  
-
   // 绘制图表（需要等待 DOM 渲染）
   nextTick(() => drawChart())
 })

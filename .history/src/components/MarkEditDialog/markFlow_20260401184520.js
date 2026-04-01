@@ -136,7 +136,7 @@ export const clearRubberBand = (mapState) => {
    */
 export const onEditOpen = (markData, segment) => {
   let draughts = segment.map(point => point.draught)
-  let firstPoint = segment[0]
+  let first = segment[0]
   let resolvePromise = null
   let app = null
   let container = null
@@ -150,7 +150,6 @@ export const onEditOpen = (markData, segment) => {
 
       app = createApp(Dialog, {
         markData,
-        firstPoint,
         draughts,  // 新增：传入吃水数据
         onConfirm: (result) => {
           if (resolvePromise) resolvePromise(result)

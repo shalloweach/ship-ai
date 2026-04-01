@@ -99,7 +99,7 @@ import { searchPorts, searchPortsByCoord } from './chinaPortsData'
 
 const props = defineProps({
   markData: Object,
-  firstPoint:Object,
+  firstPoint:
   draughts: { type: Array, default: () => [] },
   onConfirm: Function,
   onCancel: Function

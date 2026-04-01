@@ -27,26 +27,31 @@
           </div>
         </div>
 
-        <!-- 港口搜索 -->
+        <!-- 港口搜索（支持手动输入任意文本） -->
         <div class="form-row">
           <label>港口 *</label>
           <div class="port-search">
             <input 
-              v-model="portKeyword" 
-              @input="handleSearch" 
-              placeholder="搜索港口，如：香→香港港"
+              v-model="portInputValue" 
+              @input="handlePortInput" 
+              @blur="handlePortBlur"
+              placeholder="搜索或直接输入港口名称"
               class="search-input"
+              autocomplete="off"
             />
-            <ul v-if="portSuggestions.length" class="suggestion-list">
+            <ul v-if="portSuggestions.length && showSuggestions" class="suggestion-list">
               <li 
                 v-for="p in portSuggestions" 
                 :key="p.code"
                 @click="selectPort(p.name)"
                 class="suggestion-item"
               >
-                {{ p.name }}
+                {{ p.name }} <span class="port-py">{{ p.py }}</span>
               </li>
             </ul>
+          </div>
+          <div v-if="autoFillHint" class="auto-fill-hint">
+            🔍 已根据起点坐标自动填写: {{ autoFillHint }}
           </div>
         </div>
 
@@ -72,7 +77,7 @@
           </div>
         </div>
 
-        <!-- 吃水变化折线图（新增） -->
+        <!-- 吃水变化折线图 -->
         <div v-if="draughts && draughts.length" class="form-row draught-chart">
           <label>吃水变化曲线（单位：米）</label>
           <canvas ref="chartCanvas" width="400" height="150" style="width:100%; height:150px; background:#f9fafb; border-radius:6px; margin-top:8px;"></canvas>
@@ -95,16 +100,38 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { searchPorts, searchPortsByCoord } from './chinaPortsData'
+import { searchPortsByKeyword, searchPortsByCoord } from './chinaPortsData'
 
 const props = defineProps({
-  markData: Object,
-  firstPoint:Object,
+  // 表单初始数据（可选，如果是对象则用于初始化表单）
+  markData: {
+    type: [Object, Array],   // 支持对象或数组
+    default: () => ({})
+  },
   draughts: { type: Array, default: () => [] },
   onConfirm: Function,
   onCancel: Function
+  // 注意：不再需要 startPoint prop，起点坐标从 markData 中提取
 })
 
+// ---------- 新增：从 markData 中提取第一个点的坐标 ----------
+const startPointCoord = computed(() => {
+  // 如果 markData 是数组且第一个元素有坐标
+  if (Array.isArray(props.markData) && props.markData.length > 0) {
+    const first = props.markData[0]
+    if (first.lon != null && first.lat != null) {
+      return { lon: first.lon, lat: first.lat }
+    }
+  }
+  // 如果 markData 是对象且包含 points 数组
+  if (props.markData && Array.isArray(props.markData.points) && props.markData.points.length > 0) {
+    const first = props.markData.points[0]
+    if (first.lon != null && first.lat != null) {
+      return { lon: first.lon, lat: first.lat }
+    }
+  }
+  return null
+})
 
 // 表单数据
 const form = ref({
@@ -119,17 +146,18 @@ const form = ref({
   _statusCustom: ''
 })
 
-// 港口搜索
-const portKeyword = ref('')
+// 港口搜索相关
+const portInputValue = ref('')
 const portSuggestions = ref([])
-
-// 是否手动设置过作业状态（避免自动覆盖）
-const statusManuallySet = ref(false)
+const showSuggestions = ref(false)
+const autoFillHint = ref('')
+let autoFilled = false
+let manualEditFlag = false
 
 // 吃水折线图 canvas 引用
 const chartCanvas = ref(null)
 
-// 计算趋势文本（仅用于显示）
+// 计算趋势文本
 const trendText = computed(() => {
   if (!props.draughts || props.draughts.length < 2) return '数据不足'
   const first = props.draughts[0]
@@ -140,167 +168,103 @@ const trendText = computed(() => {
 })
 
 // 自动设置作业状态的规则函数
-const applyAutoStatus = () => {
-  // 如果用户已手动设置过，不再自动覆盖
-  if (statusManuallySet.value) return
+let statusManuallySet = ref(false)
 
-  // 修正：删除重复定义，直接使用 form.value.stayType 并设置默认值
+const applyAutoStatus = () => {
+  if (statusManuallySet.value) return
   const stayType = form.value.stayType || '靠泊'
   let autoStatus = '未知'
 
   if (stayType === '锚泊') {
     autoStatus = '等待'
   } else if (stayType === '靠泊') {
-    // 需要吃水数据判断
     if (props.draughts && props.draughts.length >= 2) {
       const first = props.draughts[0]
       const last = props.draughts[props.draughts.length - 1]
-      if (first > last) {
-        autoStatus = '卸货'
-      } else if (first < last) {
-        autoStatus = '装货'
-      } else {
-        autoStatus = '未知'
-      }
+      if (first > last) autoStatus = '卸货'
+      else if (first < last) autoStatus = '装货'
+      else autoStatus = '未知'
     } else {
       autoStatus = '未知'
     }
   } else {
-    // 其他类型（异常、自定义等）默认为未知
     autoStatus = '未知'
   }
-
-  // 更新状态，但不标记为手动（因为自动）
   form.value.status = autoStatus
 }
 
-// 根据坐标自动搜索并填充港口（避免覆盖用户已选值）
+// 根据起点坐标自动填充港口
 const autoFillPortByCoord = async () => {
-  // 如果用户已手动选择港口，则不自动填充
-  if (form.value.port?.trim()) return
-  
-  // 兼容 markData 为对象或数组的情况
-  
+  const coord = startPointCoord.value
+  if (!coord) return
+
+  // 如果用户已经手动编辑过港口，则不再自动填充
+  if (manualEditFlag) return
+
   try {
-    const results = await searchPortsByCoord(props.firstPoint.lon, props.firstPoint.lat)
-    if (results?.length > 0 && !form.value.port?.trim()) {
-      // 取最近的第一个港口作为默认值
-      const defaultPort = results[0]
-      form.value.port = defaultPort.name
-      portKeyword.value = defaultPort.name
-      console.log('✅ 自动填充港口:', defaultPort.name)
+    const result = await searchPortsByCoord(coord.lon, coord.lat)
+    if (result) {
+      form.value.port = result.name
+      portInputValue.value = result.name
+      autoFillHint.value = `${result.name}（距离 ${result.distance.toFixed(1)} km）`
+      autoFilled = true
+    } else {
+      form.value.port = ''
+      portInputValue.value = ''
+      autoFillHint.value = '未找到附近港口（>30km），请手动输入'
+      autoFilled = false
     }
   } catch (error) {
-    console.warn('⚠️ 坐标搜索港口失败:', error)
-    // 失败时静默处理，不影响用户体验
+    console.error('自动填充港口失败:', error)
   }
 }
 
-
-// 绘制吃水折线图
-const drawChart = () => {
-  const canvas = chartCanvas.value
-  if (!canvas || !props.draughts || props.draughts.length === 0) return
-
-  const ctx = canvas.getContext('2d')
-  const width = canvas.clientWidth
-  const height = canvas.clientHeight
-  canvas.width = width
-  canvas.height = height
-
-  const data = props.draughts
-  const count = data.length
-  if (count < 2) {
-    // 只有一点时，画一个点
-    ctx.clearRect(0, 0, width, height)
-    ctx.fillStyle = '#3b82f6'
-    ctx.beginPath()
-    ctx.arc(width / 2, height / 2, 3, 0, 2 * Math.PI)
-    ctx.fill()
-    return
-  }
-
-  const min = Math.min(...data)
-  const max = Math.max(...data)
-  const range = max - min || 1  // 避免除零
-
-  // 计算每个点的坐标
-  const points = data.map((value, idx) => {
-    const x = (idx / (count - 1)) * width
-    const y = height - ((value - min) / range) * height
-    return { x, y, value }
-  })
-
-  ctx.clearRect(0, 0, width, height)
-
-  // 绘制网格线
-  ctx.beginPath()
-  ctx.strokeStyle = '#e2e8f0'
-  ctx.lineWidth = 0.5
-  for (let i = 0; i <= 4; i++) {
-    const y = (i / 4) * height
-    ctx.moveTo(0, y)
-    ctx.lineTo(width, y)
-    ctx.stroke()
-  }
-
-  // 绘制折线
-  ctx.beginPath()
-  ctx.moveTo(points[0].x, points[0].y)
-  for (let i = 1; i < points.length; i++) {
-    ctx.lineTo(points[i].x, points[i].y)
-  }
-  ctx.strokeStyle = '#3b82f6'
-  ctx.lineWidth = 2
-  ctx.stroke()
-
-  // 绘制数据点
-  ctx.fillStyle = '#ef4444'
-  points.forEach(p => {
-    ctx.beginPath()
-    ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI)
-    ctx.fill()
-  })
-
-  // 标注起点和终点值
-  ctx.font = '10px sans-serif'
-  ctx.fillStyle = '#1e293b'
-  ctx.fillText(points[0].value.toFixed(2), points[0].x - 15, points[0].y - 5)
-  ctx.fillText(points[points.length-1].value.toFixed(2), points[points.length-1].x + 5, points[points.length-1].y - 5)
-}
-
-// 监听停留类型变化，自动更新状态
-const onStayTypeChange = () => {
-  // 重置手动标记（因为用户改了停留类型，可能想重新自动判断）
-  statusManuallySet.value = false
-  applyAutoStatus()
-}
-
-// 作业状态手动变化时标记为已手动设置
-const onStatusChange = () => {
-  statusManuallySet.value = true
-}
-
-// 港口搜索处理
-const handleSearch = async () => {
-  const keyword = portKeyword.value.trim()
+// 港口输入处理
+const handlePortInput = async () => {
+  manualEditFlag = true
+  autoFillHint.value = ''
+  const keyword = portInputValue.value.trim()
   if (!keyword) {
     portSuggestions.value = []
+    showSuggestions.value = false
+    form.value.port = ''
     return
   }
+
   try {
-    const results = await searchPorts(keyword)
-    portSuggestions.value = results || []
+    const results = await searchPortsByKeyword(keyword)
+    portSuggestions.value = results.slice(0, 8)
+    showSuggestions.value = results.length > 0
   } catch (error) {
     console.error('港口搜索失败:', error)
     portSuggestions.value = []
   }
 }
 
+const handlePortBlur = () => {
+  setTimeout(() => {
+    showSuggestions.value = false
+  }, 200)
+}
+
 const selectPort = (name) => {
   form.value.port = name
-  portKeyword.value = name
+  portInputValue.value = name
   portSuggestions.value = []
+  showSuggestions.value = false
+  manualEditFlag = true
+  autoFillHint.value = ''
+}
+
+// 停留类型变化
+const onStayTypeChange = () => {
+  statusManuallySet.value = false
+  applyAutoStatus()
+}
+
+// 作业状态手动变化
+const onStatusChange = () => {
+  statusManuallySet.value = true
 }
 
 // 校验表单
@@ -318,7 +282,7 @@ const valid = computed(() => {
 // 提交
 const handleSubmit = () => {
   if (!valid.value) return
-  
+
   const result = {
     id: form.value.id,
     mmsi: form.value.mmsi,
@@ -328,41 +292,120 @@ const handleSubmit = () => {
     port: form.value.port,
     status: form.value.status === 'custom' ? form.value._statusCustom : form.value.status
   }
-  
+
   props.onConfirm?.(result)
 }
 
 // 取消
 const handleCancel = () => props.onCancel?.()
 
-// 初始化
-onMounted(() => {
-  if (props.markData) {
+// 绘制吃水折线图
+const drawChart = () => {
+  const canvas = chartCanvas.value
+  if (!canvas || !props.draughts || props.draughts.length === 0) return
+
+  const ctx = canvas.getContext('2d')
+  const width = canvas.clientWidth
+  const height = canvas.clientHeight
+  canvas.width = width
+  canvas.height = height
+
+  const data = props.draughts
+  const count = data.length
+  if (count < 2) {
+    ctx.clearRect(0, 0, width, height)
+    ctx.fillStyle = '#3b82f6'
+    ctx.beginPath()
+    ctx.arc(width / 2, height / 2, 3, 0, 2 * Math.PI)
+    ctx.fill()
+    return
+  }
+
+  const min = Math.min(...data)
+  const max = Math.max(...data)
+  const range = max - min || 1
+
+  const points = data.map((value, idx) => {
+    const x = (idx / (count - 1)) * width
+    const y = height - ((value - min) / range) * height
+    return { x, y, value }
+  })
+
+  ctx.clearRect(0, 0, width, height)
+  ctx.beginPath()
+  ctx.strokeStyle = '#e2e8f0'
+  ctx.lineWidth = 0.5
+  for (let i = 0; i <= 4; i++) {
+    const y = (i / 4) * height
+    ctx.moveTo(0, y)
+    ctx.lineTo(width, y)
+    ctx.stroke()
+  }
+
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y)
+  }
+  ctx.strokeStyle = '#3b82f6'
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+  ctx.fillStyle = '#ef4444'
+  points.forEach(p => {
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI)
+    ctx.fill()
+  })
+
+  ctx.font = '10px sans-serif'
+  ctx.fillStyle = '#1e293b'
+  ctx.fillText(points[0].value.toFixed(2), points[0].x - 15, points[0].y - 5)
+  ctx.fillText(points[points.length-1].value.toFixed(2), points[points.length-1].x + 5, points[points.length-1].y - 5)
+}
+
+// ---------- 初始化 ----------
+onMounted(async () => {
+  // 表单初始化：只有当 markData 是对象且不是数组时才填充（因为数组通常为轨迹点）
+  if (props.markData && typeof props.markData === 'object' && !Array.isArray(props.markData)) {
     form.value = { ...form.value, ...props.markData }
     if (form.value.status) statusManuallySet.value = true
+    if (form.value.port) {
+      portInputValue.value = form.value.port
+      manualEditFlag = true
+    }
   }
-  
-  // 如果停留类型为空，设置为默认值 '靠泊'
+
   if (!form.value.stayType) {
     form.value.stayType = '靠泊'
   }
-  
-  // 初始自动判断状态（若未手动）
+
   if (!statusManuallySet.value) {
     applyAutoStatus()
   }
-  
-   // 🆕 新增：如果港口为空，尝试根据坐标自动填充
-   if (!form.value.port?.trim()) {
-    autoFillPortByCoord()
-  }
-  
 
-  // 绘制图表（需要等待 DOM 渲染）
+  // 自动填充港口（基于起点坐标）
+  await autoFillPortByCoord()
+
   nextTick(() => drawChart())
 })
 
-// 监听吃水数据变化，重新绘制图表，并重新评估自动状态（若未手动）
+// 监听 markData 变化（如果用户未手动编辑，重新自动填充）
+watch(() => props.markData, async (newVal, oldVal) => {
+  // 当 markData 变化且用户未手动编辑过港口时，重新自动填充
+  if (!manualEditFlag) {
+    await autoFillPortByCoord()
+  }
+}, { deep: true })
+
+// 监听起点坐标变化（例如 markData 中的第一个点坐标变化时重新自动填充）
+watch(startPointCoord, async (newCoord, oldCoord) => {
+  if (!manualEditFlag && newCoord) {
+    await autoFillPortByCoord()
+  }
+})
+
+// 监听吃水数据变化
 watch(() => props.draughts, () => {
   nextTick(() => drawChart())
   if (!statusManuallySet.value) {
@@ -370,13 +413,36 @@ watch(() => props.draughts, () => {
   }
 }, { deep: true })
 
-// 监听表单停留类型变化，自动状态已由 onStayTypeChange 处理，但 watch 也加一层确保
+// 监听停留类型变化
 watch(() => form.value.stayType, () => {
   if (!statusManuallySet.value) applyAutoStatus()
 })
 </script>
 
 <style scoped>
+/* 原有样式保持不变，补充以下样式 */
+.auto-fill-hint {
+  font-size: 12px;
+  color: #10b981;
+  margin-top: 4px;
+  padding-left: 4px;
+}
+
+.port-py {
+  font-size: 11px;
+  color: #6b7280;
+  margin-left: 8px;
+}
+
+.suggestion-item {
+  cursor: pointer;
+  padding: 6px 10px;
+  transition: background 0.2s;
+}
+
+.suggestion-item:hover {
+  background: #f3f4f6;
+}
 /* 原有样式保持不变，新增折线图相关样式 */
 .draught-chart {
   margin-top: 16px;

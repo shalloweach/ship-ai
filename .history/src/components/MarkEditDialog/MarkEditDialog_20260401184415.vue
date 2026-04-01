@@ -99,7 +99,6 @@ import { searchPorts, searchPortsByCoord } from './chinaPortsData'
 
 const props = defineProps({
   markData: Object,
-  firstPoint:Object,
   draughts: { type: Array, default: () => [] },
   onConfirm: Function,
   onCancel: Function
@@ -182,7 +181,7 @@ const autoFillPortByCoord = async () => {
   // 兼容 markData 为对象或数组的情况
   
   try {
-    const results = await searchPortsByCoord(props.firstPoint.lon, props.firstPoint.lat)
+    const results = await searchPortsByCoord(props.firstPoint.lon, props.first.lat)
     if (results?.length > 0 && !form.value.port?.trim()) {
       // 取最近的第一个港口作为默认值
       const defaultPort = results[0]

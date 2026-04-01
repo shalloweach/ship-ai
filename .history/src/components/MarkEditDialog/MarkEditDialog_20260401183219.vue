@@ -95,11 +95,10 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { searchPorts, searchPortsByCoord } from './chinaPortsData'
+import { searchPorts } from './chinaPortsData'
 
 const props = defineProps({
   markData: Object,
-  firstPoint:Object,
   draughts: { type: Array, default: () => [] },
   onConfirm: Function,
   onCancel: Function
@@ -180,9 +179,11 @@ const autoFillPortByCoord = async () => {
   if (form.value.port?.trim()) return
   
   // 兼容 markData 为对象或数组的情况
+  const first = Array.isArray(props.markData) ? props.markData[0] : props.markData
+  if (!first?.lon || !first?.lat) return
   
   try {
-    const results = await searchPortsByCoord(props.firstPoint.lon, props.firstPoint.lat)
+    const results = await searchPortsByCoord(first.lon, first.lat)
     if (results?.length > 0 && !form.value.port?.trim()) {
       // 取最近的第一个港口作为默认值
       const defaultPort = results[0]
@@ -352,12 +353,6 @@ onMounted(() => {
     applyAutoStatus()
   }
   
-   // 🆕 新增：如果港口为空，尝试根据坐标自动填充
-   if (!form.value.port?.trim()) {
-    autoFillPortByCoord()
-  }
-  
-
   // 绘制图表（需要等待 DOM 渲染）
   nextTick(() => drawChart())
 })
