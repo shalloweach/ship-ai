@@ -26,9 +26,9 @@
             <th @click="handleSort('startTime')" class="sortable">
               开始时间 <span v-if="sortKey==='startTime'">{{ sortOrder==='asc'?'↑':'↓' }}</span>
             </th>
-            <!-- <th @click="handleSort('startIndex')" class="sortable">
+            <th @click="handleSort('startIndex')" class="sortable">
               起始索引 <span v-if="sortKey==='startIndex'">{{ sortOrder==='asc'?'↑':'↓' }}</span>
-            </th> -->
+            </th>
             <th>结束时间</th>
             <th>时长</th>
             <th>类型</th>
@@ -44,7 +44,7 @@
             @click="handleRowClick(mark)"
           >
             <td><button class="link-btn" @click.stop="emit('mark-select', mark)">{{ formatTime(mark.startTime) }}</button></td>
-            <!-- <td>{{ mark.startIndex ?? '-' }}</td> -->
+            <td>{{ mark.startIndex ?? '-' }}</td>
             <td>{{ formatTime(mark.endTime) }}</td>
             <td>{{ formatDuration(mark.endTime - mark.startTime) }}</td>
             <td>

@@ -44,7 +44,7 @@
             @click="handleRowClick(mark)"
           >
             <td><button class="link-btn" @click.stop="emit('mark-select', mark)">{{ formatTime(mark.startTime) }}</button></td>
-            <!-- <td>{{ mark.startIndex ?? '-' }}</td> -->
+            <td>{{ mark.startIndex ?? '-' }}</td>
             <td>{{ formatTime(mark.endTime) }}</td>
             <td>{{ formatDuration(mark.endTime - mark.startTime) }}</td>
             <td>

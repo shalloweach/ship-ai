@@ -7,6 +7,7 @@
 // 引入默认布局组件
 import DefaultLayout from './layouts/DefaultLayout.vue'
 
+import './styles/component-theme.css'
 </script>
 
 <style>

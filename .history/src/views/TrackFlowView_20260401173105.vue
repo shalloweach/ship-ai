@@ -135,16 +135,8 @@
       <div v-if="error" class="error-toast" @click="error = null" role="alert">
         ⚠️ {{ error }} <small>(点击关闭)</small>
       </div>
-
-      <div 
-        class="resize-hotzone" 
-        @mousedown="startResize"
-        @dblclick="resetPanelWidth"
-        title="拖拽调整宽度，双击重置"
-        aria-label="调整面板宽度"
-      ></div>
-      
     </aside>
+    <div class="resize-handle" @mousedown="startResize"></div>
 
     <!-- 🗺️ 右侧地图展示区域 -->
     <section class="map-wrapper" role="region" aria-label="轨迹地图展示" @click="onMapClick">
@@ -261,7 +253,6 @@ onMounted(async () => {
 
 // ========== 🧹 清理资源 ==========
 onUnmounted(() => {
-  stopResize()
   if (mapOp && typeof mapOp.destroy === 'function') {
     mapOp.destroy()
   }
@@ -285,39 +276,39 @@ const syncPanelState = () => {
 }
 
 // 可调节面板宽度
-const panelWidth = ref(500)        // 初始宽度 500px（原为400，现增大）
+const panelWidth = ref(600)
 const isResizing = ref(false)
 
-// 拖拽调整宽度
 const startResize = (e) => {
-  e.preventDefault() // ✅ 防止拖拽时触发文本选择
   isResizing.value = true
-  document.body.classList.add('resizing') // ✅ 替代直接设置 style
-  document.addEventListener('mousemove', onResize, { passive: true })
-  document.addEventListener('mouseup', stopResize, { passive: true })
+  document.body.style.userSelect = 'none'
+  document.documentElement.style.setProperty('--panel-width', panelWidth.value + 'px')
+  document.addEventListener('mousemove', onResize)
+  document.addEventListener('mouseup', stopResize)
 }
 
 const onResize = (e) => {
   if (!isResizing.value) return
   const container = document.querySelector('.track-flow-container')
   if (!container) return
-  
   const rect = container.getBoundingClientRect()
   let newWidth = e.clientX - rect.left
-  newWidth = Math.min(800, Math.max(320, newWidth))
-  
+  newWidth = Math.min(800, Math.max(300, newWidth))
   panelWidth.value = newWidth
-  
   document.documentElement.style.setProperty('--panel-width', newWidth + 'px')
 }
 
 const stopResize = () => {
-  if (!isResizing.value) return
   isResizing.value = false
-  document.body.classList.remove('resizing')
+  document.body.style.userSelect = ''
   document.removeEventListener('mousemove', onResize)
   document.removeEventListener('mouseup', stopResize)
 }
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onResize)
+  document.removeEventListener('mouseup', stopResize)
+})
 
 
 // ✅ 暴露给父组件
@@ -338,96 +329,45 @@ defineExpose({
   height: 100%;
   overflow: hidden;
   background: #f8fafc;
-  position: relative; /* ✅ 添加：为可能的 absolute 子元素提供定位基准 */
 }
 
-/* ============ 📋 左侧面板（更新） ============ */
+/* ============ 📋 左侧面板（图标导航 + 内容） ============ */
 .side-panel {
-  /* ✅ 关键：添加 position: relative，为内部绝对定位的热区提供基准 */
-  position: relative;
-  
-  /* 宽度由 :style 动态绑定 */
+  /* 移除 width, min-width, max-width 硬编码 */
+  flex-shrink: 0;
   height: 100%;
   display: flex;
   flex-direction: row;
   background: #fff;
   border-right: 1px solid #e2e8f0;
   overflow: hidden;
-  flex-shrink: 0;
-  z-index: 10; /* ✅ 确保热区在地图上方 */
+  /* 确保宽度由动态绑定控制 */
 }
 
-/* ============ ✨ 新增：隐形拖拽热区 ============ */
-.resize-hotzone {
-  /* ✅ 绝对定位在面板右侧边缘 */
-  position: absolute;
+.resize-handle {
+  position: fixed;          /* 固定定位，避免影响布局流 */
   top: 0;
-  right: 0;      /* ✅ 紧贴右侧 */
   bottom: 0;
-  width: 10px;   /* ✅ 热区宽度：8-12px 最佳体验 */
-  
-  /* ✅ 完全透明，但能响应鼠标事件 */
-  background: transparent;
-  cursor: col-resize;  /* ✅ 标准列调整光标 */
-  
-  /* ✅ 层级：高于面板内容，低于可能的弹窗 */
-  z-index: 20;
-  
-  /* ✅ 防止选中文本 */
-  user-select: none;
-  -webkit-user-select: none;
-  
-  /* ✅ 可选：极细微的视觉提示（默认隐藏） */
-  border-right: 1px solid transparent;
-  transition: border-color 0.15s ease;
-}
-
-/* ✅ Hover 时：显示微弱视觉反馈 + 光标增强 */
-.resize-hotzone:hover {
-  border-right-color: rgba(59, 130, 246, 0.4); /* 极细蓝色提示线 */
-  /* ✅ 可选：添加轻微背景，帮助调试 */
-  /* background: rgba(59, 130, 246, 0.03); */
-}
-
-/* ✅ 拖拽中：增强视觉反馈 */
-body.resizing .resize-hotzone {
-  border-right-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.08);
-}
-
-/* ✅ 可选：添加一个悬浮的 ↔ 图标提示（纯装饰，不干扰点击） */
-.resize-hotzone::after {
-  content: '↔';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  
-  /* ✅ 默认隐藏，hover 时淡入 */
-  opacity: 0;
-  color: rgba(59, 130, 246, 0.6);
-  font-size: 14px;
-  font-weight: 300;
-  pointer-events: none; /* ✅ 不拦截鼠标事件 */
-  transition: opacity 0.15s ease;
-  
-  /* ✅ 防止文字选中 */
+  left: var(--panel-width, 450px);  /* 动态跟随面板宽度 */
+  width: 5px;
+  cursor: ew-resize;
+  background-color: transparent;
+  transition: background-color 0.2s;
+  z-index: 30;
   user-select: none;
 }
 
-.resize-hotzone:hover::after {
-  opacity: 1;
+.resize-handle:hover {
+  background-color: rgba(59, 130, 246, 0.3);
 }
 
-/* ✅ 拖拽时保持图标可见 */
-body.resizing .resize-hotzone::after {
-  opacity: 0.8;
-  color: #3b82f6;
+/* 拖拽时改变光标样式 */
+body.resizing {
+  cursor: ew-resize !important;
+  user-select: none;
 }
 
-
-/* ============ ✅ 左侧图标导航栏（垂直排列） ============ */
-
+/* ✅ 左侧图标导航栏（垂直排列） */
 .panel-nav {
   width: 56px;
   min-width: 56px;
